@@ -3,11 +3,13 @@
 import os
 import sys
 
+from decouple import config
+
 
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE',
-                          'backend.settings.production')
+                          config('SETTINGS'))
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
