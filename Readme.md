@@ -30,27 +30,35 @@ python setup.py
 
 ### 2. Generate `.env` File
 
-Once configured (and after optionally adding secrets to `env.private.yaml`), generate your `.env` file:
+Once configured, generate your `.env` file. You can also provide overrides or secrets by creating a `env.private.yaml` file (see `env.private.example.yaml` for guidance). Note that `.env` is NOT tracked by git.
+
 ```bash
 python generate_env.py
 ```
 
 ## Running the Application
 
-### Development (Docker)
+We have included `run.sh` and `run.py` to simplify Docker commands, as they automatically use the COMPOSE_PROFILES generated in your `.env`.
 
-To run the local development server (along with configured services like Postgres/Redis/Celery):
+To run the local development server (along with configured services):
 ```bash
-docker-compose -f docker-compose.dev.yml --profile web --profile postgres --profile redis --profile celery up --build
+./run.sh
+# or python run.py
 ```
-*(You only need to include the `--profile` flags for the services you enabled in setup).*
 
-### Production (Docker)
-
-To run in production using Gunicorn:
+To run in production locally using Gunicorn:
 ```bash
-docker-compose -f docker-compose.prod.yml --profile web --profile postgres --profile redis --profile celery up --build -d
+./run.sh prod
 ```
+
+### Advanced Run Commands
+You can append flags to `restart` to build images:
+- `./run.sh restart` (Restarts all containers)
+- `./run.sh restart --build` (Builds and restarts containers)
+- `./run.sh restart --build --nocache` (Builds without cache and restarts)
+
+To completely prune images and do a fresh start:
+- `./run.sh rebuild`
 
 ## Local Development (Without Docker)
 

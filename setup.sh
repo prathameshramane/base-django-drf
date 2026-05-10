@@ -11,32 +11,53 @@ use_postgres=${use_postgres:-y}
 use_redis=${use_redis:-y}
 use_celery=${use_celery:-y}
 
-echo "DEBUG: \"True\"" > env.public.yaml
+cat <<EOF > env.public.yaml
+debug: true
+use:
+EOF
 
 if [[ $use_postgres =~ ^[Yy]$ ]]; then
-    echo "USE_POSTGRES: \"True\"" >> env.public.yaml
-    echo "POSTGRES_DB: \"postgres\"" >> env.public.yaml
-    echo "POSTGRES_USER: \"postgres\"" >> env.public.yaml
-    echo "POSTGRES_PASSWORD: \"postgres\"" >> env.public.yaml
-    echo "POSTGRES_HOST: \"postgres\"" >> env.public.yaml
-    echo "POSTGRES_PORT: \"5432\"" >> env.public.yaml
+    echo "  postgres: true" >> env.public.yaml
 else
-    echo "USE_POSTGRES: \"False\"" >> env.public.yaml
+    echo "  postgres: false" >> env.public.yaml
 fi
 
 if [[ $use_redis =~ ^[Yy]$ ]]; then
-    echo "USE_REDIS: \"True\"" >> env.public.yaml
-    echo "REDIS_URL: \"redis://redis:6379/1\"" >> env.public.yaml
+    echo "  redis: true" >> env.public.yaml
 else
-    echo "USE_REDIS: \"False\"" >> env.public.yaml
+    echo "  redis: false" >> env.public.yaml
 fi
 
 if [[ $use_celery =~ ^[Yy]$ ]]; then
-    echo "USE_CELERY: \"True\"" >> env.public.yaml
-    echo "CELERY_BROKER_URL: \"redis://redis:6379/0\"" >> env.public.yaml
-    echo "CELERY_RESULT_BACKEND: \"redis://redis:6379/0\"" >> env.public.yaml
+    echo "  celery: true" >> env.public.yaml
 else
-    echo "USE_CELERY: \"False\"" >> env.public.yaml
+    echo "  celery: false" >> env.public.yaml
+fi
+
+if [[ $use_postgres =~ ^[Yy]$ ]]; then
+cat <<EOF >> env.public.yaml
+postgres:
+  db: postgres
+  user: postgres
+  password: postgres
+  host: postgres
+  port: 5432
+EOF
+fi
+
+if [[ $use_redis =~ ^[Yy]$ ]]; then
+cat <<EOF >> env.public.yaml
+redis:
+  url: redis://redis:6379/1
+EOF
+fi
+
+if [[ $use_celery =~ ^[Yy]$ ]]; then
+cat <<EOF >> env.public.yaml
+celery:
+  broker_url: redis://redis:6379/0
+  result_backend: redis://redis:6379/0
+EOF
 fi
 
 echo "Configuration saved to env.public.yaml."
