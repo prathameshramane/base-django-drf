@@ -9,7 +9,7 @@ from decouple import config
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE',
-                          config('SETTINGS'))
+                          config('SETTINGS', default='backend.settings.development'))
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

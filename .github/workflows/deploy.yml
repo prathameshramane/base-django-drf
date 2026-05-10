@@ -1,0 +1,139 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  check-ssh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check SSH Key
+        run: |
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            echo "Error: DEPLOY_SSH_KEY secret is not set!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DEPLOY_SSH_HOST }}" ]; then
+            echo "Error: DEPLOY_SSH_HOST secret is not set!"
+            exit 1
+          fi
+
+      - name: Test SSH Connection
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: echo "SSH Connection Successful"
+
+  build-and-push:
+    needs: check-ssh
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lower case IMAGE_NAME
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME,,}" >>${GITHUB_ENV}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Create Override YAML
+        run: |
+          echo "${{ secrets.PRIVATE_YAML_OVERRIDE }}" > env.private.yaml
+
+      - name: Generate Runtime .env
+        run: |
+          python generate_env.py
+          # Inject the image tag into .env
+          echo "WEB_IMAGE=${{ env.REGISTRY }}/${IMAGE_NAME,,}:${{ github.ref_name }}" >> .env
+
+      - name: Create Remote Directory and Copy Files
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: REPO_NAME,BRANCH_NAME
+          script: |
+            mkdir -p ~/$REPO_NAME/$BRANCH_NAME
+
+      - name: SCP docker-compose and .env
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "docker-compose.prod.yml,.env"
+          target: "~/${{ github.event.repository.name }}/${{ github.ref_name }}"
+
+      - name: Docker Compose Up on Remote
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: REPO_NAME,BRANCH_NAME,GHCR_USER,GHCR_TOKEN
+          script: |
+            cd ~/$REPO_NAME/$BRANCH_NAME
+            echo $GHCR_TOKEN | docker login ghcr.io -u $GHCR_USER --password-stdin
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d

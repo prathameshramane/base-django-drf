@@ -1,9 +1,10 @@
 from pathlib import Path
 import os
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = 'django-insecure-4y@ulg!@f#m_@zwh!l!xjvy_h1+lfr#cp#4u79r-k-=b-rtxzs'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-4y@ulg!@f#m_@zwh!l!xjvy_h1+lfr#cp#4u79r-k-=b-rtxzs')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -19,19 +20,25 @@ INSTALLED_APPS = [
     # RestFramework
     'rest_framework',
     'rest_framework.authtoken',
+
+    # Swagger Documentation
+    'drf_spectacular',
+
+    # Local Apps
+    'core',
+    'sample',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # CORS
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    # CORS
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -106,4 +113,33 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+# Swagger Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API Documentation',
+    'DESCRIPTION': 'Scaffolded Django API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# Celery Configuration (Optional)
+USE_CELERY = config('USE_CELERY', default=False, cast=bool)
+if USE_CELERY:
+    CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+    CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TIMEZONE = TIME_ZONE
+
+# Redis Cache (Optional)
+USE_REDIS = config('USE_REDIS', default=False, cast=bool)
+if USE_REDIS:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://localhost:6379/1'),
+        }
+    }
