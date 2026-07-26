@@ -4,7 +4,7 @@ import os
 
 def run_command(cmd):
     try:
-        subprocess.run(cmd, check=True, shell=True)
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e}")
         sys.exit(e.returncode)
@@ -18,30 +18,31 @@ def main():
 
     command = args[0] if len(args) > 0 and not args[0].startswith("--") else None
 
-    build_flag = "--build" if "--build" in args else ""
-    nocache_flag = "--no-cache" if "--nocache" in args else ""
-
-    flags = f"{build_flag} {nocache_flag}".strip()
+    flags = []
+    if "--build" in args:
+        flags.append("--build")
+    if "--nocache" in args:
+        flags.append("--no-cache")
 
     if command is None:
         print("Starting development server...")
-        run_command(f"docker compose -f docker-compose.dev.yml up {flags}")
+        run_command(["docker", "compose", "-f", "docker-compose.dev.yml", "up"] + flags)
     elif command == "prod":
         print("Starting production server locally...")
-        run_command(f"docker compose -f docker-compose.prod.yml up {flags}")
+        run_command(["docker", "compose", "-f", "docker-compose.prod.yml", "up"] + flags)
     elif command == "restart":
         print("Restarting containers...")
-        if build_flag:
+        if "--build" in args:
             print("Building and starting...")
-            run_command(f"docker compose -f docker-compose.dev.yml up {flags} -d")
+            run_command(["docker", "compose", "-f", "docker-compose.dev.yml", "up"] + flags + ["-d"])
         else:
-            run_command(f"docker compose -f docker-compose.dev.yml restart")
+            run_command(["docker", "compose", "-f", "docker-compose.dev.yml", "restart"])
     elif command == "rebuild":
         print("Rebuilding containers completely...")
-        run_command("docker compose -f docker-compose.dev.yml down -v")
-        run_command("docker image prune -a -f")
-        run_command("docker compose -f docker-compose.dev.yml build --no-cache")
-        run_command("docker compose -f docker-compose.dev.yml up -d")
+        run_command(["docker", "compose", "-f", "docker-compose.dev.yml", "down", "-v"])
+        run_command(["docker", "image", "prune", "-a", "-f"])
+        run_command(["docker", "compose", "-f", "docker-compose.dev.yml", "build", "--no-cache"])
+        run_command(["docker", "compose", "-f", "docker-compose.dev.yml", "up", "-d"])
     else:
         print(f"Unknown command: {command}")
         print("Available commands:")
