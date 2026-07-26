@@ -1,5 +1,4 @@
 import yaml
-import os
 
 def prompt_yes_no(question, default="yes"):
     valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
