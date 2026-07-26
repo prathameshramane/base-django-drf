@@ -43,7 +43,7 @@ class VersionedModel(models.Model):
     version = models.PositiveIntegerField(default=1)
 
     def save(self, *args, **kwargs):
-        if self.pk:
+        if not self._state.adding:
             self.version += 1
         super().save(*args, **kwargs)
 
